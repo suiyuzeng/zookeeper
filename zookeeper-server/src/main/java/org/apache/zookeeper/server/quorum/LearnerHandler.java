@@ -55,6 +55,12 @@ import org.slf4j.LoggerFactory;
  * There will be an instance of this class created by the Leader for each
  * learner. All communication with a learner is handled by this
  * class.
+ * 功能：维护各leaner的同步状态，请求转发？，刚启动时，进行与leaner的数据同步；proposal处理
+ * 实现方式：
+ *     同步状态：通过向leaner发送ping，leaner回复ack，判断是否超过tickTime * syncLimit（SyncLimitCheck具体判断）；
+ *     数据同步：刚启动时，先进行数据同步，然后再启动queuedPackets的发送线程；
+ *     proposal处理：requestProcessor中将request添加到queuedPackets中，sendPackets对应的线程会发送给learner，run方法中等待ack
+ *
  */
 public class LearnerHandler extends ZooKeeperThread {
     private static final Logger LOG = LoggerFactory.getLogger(LearnerHandler.class);
@@ -376,6 +382,7 @@ public class LearnerHandler extends ZooKeeperThread {
             bufferedOutput = new BufferedOutputStream(sock.getOutputStream());
             oa = BinaryOutputArchive.getArchive(bufferedOutput);
 
+            //读取收到的信息，获取sid，version等
             QuorumPacket qp = new QuorumPacket();
             ia.readRecord(qp, "packet");
             if(qp.getType() != Leader.FOLLOWERINFO && qp.getType() != Leader.OBSERVERINFO){
@@ -449,10 +456,12 @@ public class LearnerHandler extends ZooKeeperThread {
 				}
                 ByteBuffer bbepoch = ByteBuffer.wrap(ackEpochPacket.getData());
                 ss = new StateSummary(bbepoch.getInt(), ackEpochPacket.getZxid());
-                learnerMaster.waitForEpochAck(this.getSid(), ss);
+                learnerMaster.waitForEpochAck(this.getSid(), ss);//等待大部分的follower回复ack，否则抛异常，退出
             }
             peerLastZxid = ss.getLastZxid();
 
+
+            //根据上报的zxid，结合本地的zxid，进行主从数据一致处理，truncate、diff等操作
             // Take any necessary action if we need to send TRUNC or DIFF
             // startForwarding() will be called in all cases
             boolean needSnap = syncFollower(peerLastZxid, learnerMaster);
@@ -522,7 +531,7 @@ public class LearnerHandler extends ZooKeeperThread {
             if(LOG.isDebugEnabled()){
             	LOG.debug("Received NEWLEADER-ACK message from " + sid);
             }
-            learnerMaster.waitForNewLeaderAck(getSid(), qp.getZxid());
+            learnerMaster.waitForNewLeaderAck(getSid(), qp.getZxid());//不只此节点同步完成，所大部分的都回复了ack
 
             syncLimitCheck.start();
 
@@ -567,7 +576,7 @@ public class LearnerHandler extends ZooKeeperThread {
                             LOG.debug("Received ACK from Observer  " + this.sid);
                         }
                     }
-                    syncLimitCheck.updateAck(qp.getZxid());
+                    syncLimitCheck.updateAck(qp.getZxid());//更新zxid，是否同步主要根据是同步的zxid
                     learnerMaster.processAck(this.sid, qp.getZxid(), sock.getLocalSocketAddress());
                     break;
                 case Leader.PING:
@@ -584,7 +593,7 @@ public class LearnerHandler extends ZooKeeperThread {
                 case Leader.REVALIDATE:
                     learnerMaster.revalidateSession(qp, this);
                     break;
-                case Leader.REQUEST:
+                case Leader.REQUEST://slave转发过来的请求
                     bb = ByteBuffer.wrap(qp.getData());
                     sessionId = bb.getLong();
                     cxid = bb.getInt();
@@ -760,6 +769,7 @@ public class LearnerHandler extends ZooKeeperThread {
                         peerLastZxid, sizeLimit);
                 if (txnLogItr.hasNext()) {
                     LOG.info("Use txnlog and committedLog for peer sid: " +  getSid());
+                    //tx和commitlog进行同步，通过发送COMMIT类型request
                     currentZxid = queueCommittedProposals(txnLogItr, peerLastZxid,
                                                          minCommittedLog, maxCommittedLog);
 

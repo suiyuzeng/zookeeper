@@ -1,0 +1,4 @@
+1.安装ant
+2.ant eclipse
+3.打开IDEA，导入工程，选择eclipse工程，来导入zookeeper
+4.若要打印日志：-Dlog4j.configuration=file:/xxx/log4j.properties

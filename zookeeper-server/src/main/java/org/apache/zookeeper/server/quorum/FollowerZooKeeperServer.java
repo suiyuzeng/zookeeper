@@ -74,12 +74,12 @@ public class FollowerZooKeeperServer extends LearnerZooKeeperServer {
     protected void setupRequestProcessors() {
         RequestProcessor finalProcessor = new FinalRequestProcessor(this);
         commitProcessor = new CommitProcessor(finalProcessor,
-                Long.toString(getServerId()), true, getZooKeeperServerListener());
+                Long.toString(getServerId()), true, getZooKeeperServerListener());//commit 等待，收到leader的commit request触发
         commitProcessor.start();
-        firstProcessor = new FollowerRequestProcessor(this, commitProcessor);
+        firstProcessor = new FollowerRequestProcessor(this, commitProcessor);//转发到leader
         ((FollowerRequestProcessor) firstProcessor).start();
         syncProcessor = new SyncRequestProcessor(this,
-                new SendAckRequestProcessor((Learner)getFollower()));
+                new SendAckRequestProcessor((Learner)getFollower()));//回复proposal的ack
         syncProcessor.start();
     }
 

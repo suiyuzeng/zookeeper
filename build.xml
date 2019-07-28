@@ -789,7 +789,7 @@ xmlns:cs="antlib:com.puppycrawl.tools.checkstyle.ant">
     <!--                                                                    -->
     <!-- ================================================================== -->
     <target name="package" 
-            depends="jar,bin-jar,src-jar,javadoc-jar,test-jar,api-report,create-cppunit-configure,compile-test"
+            depends="jar,bin-jar,src-jar,javadoc-jar,test-jar,api-report,compile-test"
             description="Build distribution">
       <mkdir dir="${dist.dir}"/>
       <mkdir dir="${dist.dir}/lib"/>
@@ -904,7 +904,7 @@ xmlns:cs="antlib:com.puppycrawl.tools.checkstyle.ant">
     </target>
 
     <target name="bin-package"
-            depends="jar,bin-jar,src-jar,javadoc-jar,test-jar,api-report,create-cppunit-configure,compile-test"
+            depends="jar,bin-jar,src-jar,javadoc-jar,test-jar,api-report,compile-test"
             description="Build binary distribution">
       <delete dir="${dist.dir}"/>
       <mkdir dir="${dist.dir}"/>

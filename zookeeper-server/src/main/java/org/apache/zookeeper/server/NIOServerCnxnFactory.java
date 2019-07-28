@@ -62,6 +62,11 @@ import org.slf4j.LoggerFactory;
  * Typical (default) thread counts are: on a 32 core machine, 1 accept thread,
  * 1 connection expiration thread, 4 selector threads, and 64 worker threads.
  */
+/*
+ *接收链接，每个链接对应NIOServerCnxn,在此中进行消息处理
+ * SelectorThread中handleIO将请求封装为IOWorkRequest，放到异步队列中，IOWorkRequest.doWork调用NIOServerCnxn.doIO进行消息处理
+ * 链接管理
+ */
 public class NIOServerCnxnFactory extends ServerCnxnFactory {
     private static final Logger LOG = LoggerFactory.getLogger(NIOServerCnxnFactory.class);
 
@@ -463,7 +468,7 @@ public class NIOServerCnxnFactory extends ServerCnxnFactory {
             // connection
             cnxn.disableSelectable();
             key.interestOps(0);
-            touchCnxn(cnxn);
+            touchCnxn(cnxn);//链接超时管理
             workerPool.schedule(workRequest);
         }
 

@@ -54,6 +54,9 @@ import org.slf4j.LoggerFactory;
  * This class handles communication with clients using NIO. There is one per
  * client, but only one thread doing the communication.
  */
+/*
+ * doIO读取数据，进行处理，readConnectRequest和readRequest两类，最终提交到ZooKeeperServer相关实现中
+ */
 public class NIOServerCnxn extends ServerCnxn {
     private static final Logger LOG = LoggerFactory.getLogger(NIOServerCnxn.class);
 
@@ -164,7 +167,7 @@ public class NIOServerCnxn extends ServerCnxn {
 
         if (incomingBuffer.remaining() == 0) { // have we read length bytes?
             incomingBuffer.flip();
-            packetReceived(4 + incomingBuffer.remaining());
+            packetReceived(4 + incomingBuffer.remaining());//stat metric
             if (!initialized) {
                 readConnectRequest();
             } else {

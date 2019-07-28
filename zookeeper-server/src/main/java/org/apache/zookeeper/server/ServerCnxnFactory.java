@@ -39,7 +39,9 @@ import org.apache.zookeeper.server.auth.SaslServerCallbackHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
+/*
+ * 链接管理，在org.apache.zookeeper.server.ServerCnxnFactory.createFactory()中根据配置选择nio还是netty
+ */
 public abstract class ServerCnxnFactory {
 
     public static final String ZOOKEEPER_SERVER_CNXN_FACTORY = "zookeeper.serverCnxnFactory";

@@ -116,7 +116,7 @@ public class FinalRequestProcessor implements RequestProcessor {
         ProcessTxnResult rc = null;
         synchronized (zks.outstandingChanges) {
             // Need to process local session requests
-            rc = zks.processTxn(request);
+            rc = zks.processTxn(request);//添加到内存
 
             // request.hdr is set for write requests, which are the only ones
             // that add to outstandingChanges.

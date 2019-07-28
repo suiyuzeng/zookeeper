@@ -41,6 +41,8 @@ import org.apache.zookeeper.server.ZooKeeperServerListener;
  * change the state of the system will come back as incoming committed requests,
  * so we need to match them up. Instead of just waiting for the committed requests, 
  * we process the uncommitted requests that belong to other sessions.
+ * session间的并发
+ *
  *
  * The CommitProcessor is multi-threaded. Communication between threads is
  * handled via queues, atomics, and wait/notifyAll synchronized on the
@@ -68,6 +70,10 @@ import org.apache.zookeeper.server.ZooKeeperServerListener;
  *
  * The current implementation solves the third constraint by simply allowing no
  * read requests to be processed in parallel with write requests.
+ */
+
+/*
+ * 通过commit方法触发，leader是大部分follower回复ack，follower接收到leader的commit request
  */
 public class CommitProcessor extends ZooKeeperCriticalThread implements
         RequestProcessor {
@@ -197,7 +203,7 @@ public class CommitProcessor extends ZooKeeperCriticalThread implements
                 while (!stopped && requestsToProcess > 0
                         && (request = queuedRequests.poll()) != null) {
                     requestsToProcess--;
-                    if (needCommit(request)
+                    if (needCommit(request)//写入请求
                             || pendingRequests.containsKey(request.sessionId)) {
                         // Add request to pending
                         LinkedList<Request> requests = pendingRequests
@@ -208,7 +214,7 @@ public class CommitProcessor extends ZooKeeperCriticalThread implements
                         }
                         requests.addLast(request);
                     }
-                    else {
+                    else {//非写入请求
                         sendToNextProcessor(request);
                     }
                     /*

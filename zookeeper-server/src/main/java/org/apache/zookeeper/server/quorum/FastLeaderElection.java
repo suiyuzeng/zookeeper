@@ -245,6 +245,13 @@ public class FastLeaderElection implements Election {
                 this.manager = manager;
             }
 
+            /*
+            接收其他peer的请求进行处理，主要分两类：
+             1.当前是looking状态，添加到recvqueue中，并对epoch小于自身的通知对方更新
+             2.当前非looking状态，回复自身的状态，并且不添加到recvqueue中；
+             recvqueue只有自身是looking状态时才会在lookForLeader中被处理，所以不需要添加；如果一个slave增加epoch触发选举流程，
+             此时其他节点都是正常状态，lookForLeader收到所有ack后，会重置epoch，继续之前的状态；
+             */
             public void run() {
 
                 Message response;
@@ -559,7 +566,7 @@ public class FastLeaderElection implements Election {
 
     QuorumPeer self;
     Messenger messenger;
-    AtomicLong logicalclock = new AtomicLong(); /* Election instance */
+    AtomicLong logicalclock = new AtomicLong(); /* Election instance, epoch */
     long proposedLeader;
     long proposedZxid;
     long proposedEpoch;
@@ -923,6 +930,7 @@ public class FastLeaderElection implements Election {
 
             int notTimeout = minNotificationInterval;
 
+            //增加epoch，有可能回退
             synchronized(this){
                 logicalclock.incrementAndGet();
                 updateProposal(getInitId(), getInitLastLoggedZxid(), getPeerEpoch());
@@ -930,7 +938,7 @@ public class FastLeaderElection implements Election {
 
             LOG.info("New election. My id =  " + self.getId() +
                     ", proposed zxid=0x" + Long.toHexString(proposedZxid));
-            sendNotifications();
+            sendNotifications();//发送投票
 
             SyncedLearnerTracker voteSet;
 
@@ -982,6 +990,7 @@ public class FastLeaderElection implements Election {
                             break;
                         }
                         // If notification > current, replace and send messages out
+                        //选举依据，首先epoch，然后zxid，最后sid
                         if (n.electionEpoch > logicalclock.get()) {
                             logicalclock.set(n.electionEpoch);
                             recvset.clear();
@@ -995,6 +1004,7 @@ public class FastLeaderElection implements Election {
                             }
                             sendNotifications();
                         } else if (n.electionEpoch < logicalclock.get()) {
+                            //WorkerReceiver 回复了当前的epoch
                             if(LOG.isDebugEnabled()){
                                 LOG.debug("Notification election epoch is smaller than logicalclock. n.electionEpoch = 0x"
                                         + Long.toHexString(n.electionEpoch)
@@ -1082,7 +1092,7 @@ public class FastLeaderElection implements Election {
                         if (voteSet.hasAllQuorums() &&
                                 checkLeader(outofelection, n.leader, n.electionEpoch)) {
                             synchronized(this){
-                                logicalclock.set(n.electionEpoch);
+                                logicalclock.set(n.electionEpoch);//epoch重置
                                 setPeerState(n.leader, voteSet);
                             }
                             Vote endVote = new Vote(n.leader, n.zxid, 

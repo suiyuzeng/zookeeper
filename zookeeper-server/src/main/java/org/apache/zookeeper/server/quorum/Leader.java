@@ -68,6 +68,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * This class has the control logic for the Leader.
+ * Leader状态维护与检查，lead方法里定时发送ping，检测各follower的同步状态，如果同步状态失败，返回，然后进行QuorumPeer中run方法，触发下一轮的选主流程
+ * run方法中，accept follower的connect请求，创建LearnerHandler， 发送ping，检测LearnerHandler回复状态
  */
 public class Leader implements LearnerMaster {
     private static final Logger LOG = LoggerFactory.getLogger(Leader.class);
@@ -494,7 +496,8 @@ public class Leader implements LearnerMaster {
 
     /**
      * This method is main function that is called to lead
-     *
+     * 半个tick发送一次心跳，然后统计是否所有节点都是同步状态，若不是，则退出leading
+     * 状态
      * @throws IOException
      * @throws InterruptedException
      */
@@ -582,7 +585,7 @@ public class Leader implements LearnerMaster {
              self.setCurrentEpoch(epoch);
 
              try {
-                 waitForNewLeaderAck(self.getId(), zk.getZxid());
+                 waitForNewLeaderAck(self.getId(), zk.getZxid());//等待自己及其他follower的ack, follower在LeanerHandler中处理
              } catch (InterruptedException e) {
                  shutdown("Waiting for a quorum of followers, only synced with sids: [ "
                          + newLeaderProposal.ackSetsToString() + " ]");
@@ -687,6 +690,7 @@ public class Leader implements LearnerMaster {
                         break;
                     }
 
+                    //ping 失败，退出leader状态
                     if (!tickSkip && !syncedAckSet.hasAllQuorums()) {
                         // Lost quorum of last committed and/or last proposed
                         // config, set shutdown flag
@@ -863,10 +867,10 @@ public class Leader implements LearnerMaster {
             informAndActivate(p, designatedLeader);
             //turnOffFollowers();
         } else {
-            commit(zxid);
+            commit(zxid);//通知follower进行commit
             inform(p);
         }
-        zk.commitProcessor.commit(p.request);
+        zk.commitProcessor.commit(p.request);//本地commit
         if(pendingSyncs.containsKey(zxid)){
             for(LearnerSyncRequest r: pendingSyncs.remove(zxid)) {
                 sendSync(r);
@@ -1443,7 +1447,7 @@ public class Leader implements LearnerMaster {
         }
 
         leaderStartTime = Time.currentElapsedTime();
-        zk.startup();
+        zk.startup();//session track init
         /*
          * Update the election vote here to ensure that all members of the
          * ensemble report the same vote to new servers that start up and
@@ -1494,7 +1498,7 @@ public class Leader implements LearnerMaster {
             } else {
                 long start = Time.currentElapsedTime();
                 long cur = start;
-                long end = start + self.getInitLimit() * self.getTickTime();
+                long end = start + self.getInitLimit() * self.getTickTime();//所有节点都需要在此时间内同步完成？
                 while (!quorumFormed && cur < end) {
                     newLeaderProposal.qvAcksetPairs.wait(end - cur);
                     cur = Time.currentElapsedTime();

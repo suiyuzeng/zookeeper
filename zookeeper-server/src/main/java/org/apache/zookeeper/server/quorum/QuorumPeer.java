@@ -907,6 +907,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
         if (!getView().containsKey(myid)) {
             throw new RuntimeException("My id " + myid + " not in the peer list");
          }
+        //load data from disk, and check the epoch
         loadDataBase();
         startServerCnxnFactory();
         try {
@@ -915,6 +916,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
             LOG.warn("Problem starting AdminServer", e);
             System.out.println(e);
         }
+        //根据配置启动对应的Algorithm, 默认的fastleaderelection需要QuorumCnxManager
         startLeaderElection();
         super.start();
     }
@@ -1142,6 +1144,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
         updateThreadName();
 
         LOG.debug("Starting quorum peer");
+        //jmx
         try {
             jmxQuorumBean = new QuorumBean(this);
             MBeanRegistry.getInstance().register(jmxQuorumBean, null);
@@ -1232,7 +1235,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
                                shuttingDownLE = false;
                                startLeaderElection();
                                }
-                            setCurrentVote(makeLEStrategy().lookForLeader());
+                            setCurrentVote(makeLEStrategy().lookForLeader());//looking状态选主
                         } catch (Exception e) {
                             LOG.warn("Unexpected exception", e);
                             setPeerState(ServerState.LOOKING);

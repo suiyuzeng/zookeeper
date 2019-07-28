@@ -65,16 +65,16 @@ public class LeaderZooKeeperServer extends QuorumZooKeeperServer {
 
     @Override
     protected void setupRequestProcessors() {
-        RequestProcessor finalProcessor = new FinalRequestProcessor(this);
-        RequestProcessor toBeAppliedProcessor = new Leader.ToBeAppliedRequestProcessor(finalProcessor, getLeader());
+        RequestProcessor finalProcessor = new FinalRequestProcessor(this);//最终处理，回复response
+        RequestProcessor toBeAppliedProcessor = new Leader.ToBeAppliedRequestProcessor(finalProcessor, getLeader());//toBeApplied list的数据更新
         commitProcessor = new CommitProcessor(toBeAppliedProcessor,
                 Long.toString(getServerId()), false,
-                getZooKeeperServerListener());
+                getZooKeeperServerListener());//异步处理，将request添加到queue中，然后等待leader的投票状态(commit方法),收到后，进行后续处理
         commitProcessor.start();
         ProposalRequestProcessor proposalProcessor = new ProposalRequestProcessor(this,
-                commitProcessor);
+                commitProcessor);//向voter发起提议，由leader流程进程处理，同时写入本地
         proposalProcessor.initialize();
-        prepRequestProcessor = new PrepRequestProcessor(this, proposalProcessor);
+        prepRequestProcessor = new PrepRequestProcessor(this, proposalProcessor);//request加到queue中根据type进行预处理
         prepRequestProcessor.start();
         firstProcessor = new LeaderRequestProcessor(this, prepRequestProcessor);
 
