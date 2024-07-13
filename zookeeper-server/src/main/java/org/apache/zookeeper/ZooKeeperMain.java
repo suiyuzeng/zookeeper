@@ -91,6 +91,7 @@ public class ZooKeeperMain {
 
     protected ZooKeeper zk;
     protected String host = "";
+    private String nu="";
 
     public boolean getPrintWatches( ) {
         return printWatches;
